@@ -167,11 +167,12 @@ button { font: inherit; }
   flex: 0 0 auto; gap: 12px; z-index: 5;
 }
 .topbar-right { display: flex; gap: 8px; }
-.turn-info {
-  color: var(--ink-2); font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600;
-}
+.turn-info { color: var(--ink); font-size: 15px; font-weight: 600; letter-spacing: .02em; }
 .turn-info .dot { opacity: .35; margin: 0 8px; }
-#stepLabel { color: var(--accent); }
+#turnLabel { font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.turn-info.your-turn #turnLabel { color: var(--good); }
+.turn-info:not(.your-turn) #turnLabel { color: var(--ink-2); }
+#stepLabel { color: var(--accent); font-weight: 700; }
 
 .player-tag { display: flex; align-items: center; gap: 12px; font-size: 13px; flex: 0 0 auto; }
 .player-tag .pname { font-weight: 600; }
@@ -247,15 +248,16 @@ button { font: inherit; }
 .stack-item .who { color: var(--muted); }
 @keyframes pop { from { transform: translateY(6px) scale(.96); opacity: 0; } }
 
-.phase-track { display: flex; gap: 4px; flex: 0 0 auto; }
+.phase-track { display: flex; gap: 5px; flex: 0 0 auto; align-items: center; }
 .phase-track span {
-  font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
-  color: #6b738288; padding: 4px 8px; border-radius: 999px; white-space: nowrap;
-  background: #00000006; transition: color .14s, background .14s;
+  font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+  color: #6b738288; padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  background: #00000008; transition: color .14s, background .14s, transform .14s;
 }
+.phase-track span.done { color: var(--muted); background: #00000012; }
 .phase-track span.on {
-  color: #fff; background: var(--accent); font-weight: 700;
-  box-shadow: 0 2px 8px #e23b2e40;
+  color: #fff; background: var(--accent); font-weight: 700; font-size: 12px;
+  box-shadow: 0 2px 10px #e23b2e55; transform: scale(1.08);
 }
 
 /* --------------------------------------------------------- prompts ---- */
@@ -365,7 +367,7 @@ button { font: inherit; }
 
 .card.playable { cursor: pointer; outline-color: var(--accent); }
 .card.playable:hover { transform: translateY(-10px) scale(1.03); box-shadow: 0 18px 34px #10203a2e; }
-.card.hand:hover { transform: translateY(-14px) scale(1.05); z-index: 5; box-shadow: 0 22px 40px #10203a38; }
+.card.hand:hover { transform: translateY(-10px) scale(1.04); z-index: 5; box-shadow: 0 18px 34px #10203a30; }
 .card.selectable { cursor: pointer; outline-color: var(--good); }
 .card.selectable:hover { transform: translateY(-6px); box-shadow: 0 12px 26px #10203a2a; }
 .card.chosen { outline-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }

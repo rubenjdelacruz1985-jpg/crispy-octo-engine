@@ -3,7 +3,6 @@
 // tuned per profile, when no key is configured. Never throws — worst case is
 // silence, and gameplay never depends on it.
 
-let serverVoice = null;   // null = untried, true = proxy works, false = fall back
 let current = null;       // current <audio>, so a new line interrupts the old
 let muted = false;
 
@@ -19,28 +18,26 @@ export async function speak(profile, text) {
   if (!text || muted || !profile) return;
   stopVoice();
 
-  if (serverVoice !== false) {
-    try {
-      const res = await fetch('/api/voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voiceId: profile.voiceId, text }),
-      });
-      if (res.status === 200) {
-        serverVoice = true;
-        const url = URL.createObjectURL(await res.blob());
-        const audio = new Audio(url);
-        current = audio;
-        const cleanup = () => URL.revokeObjectURL(url);
-        audio.onended = cleanup; audio.onerror = cleanup;
-        await audio.play().catch(() => {});
-        return;
-      }
-      serverVoice = false; // 501 (no key) or any error → use the browser voice
-    } catch {
-      serverVoice = false;
+  // Try the real (ElevenLabs) voice on EVERY line — never permanently latch to
+  // the browser fallback. If one call fails (e.g. before a key was set), only
+  // that line falls back; the next line tries the server again.
+  try {
+    const res = await fetch('/api/voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voiceId: profile.voiceId, text }),
+    });
+    if (res.status === 200) {
+      const url = URL.createObjectURL(await res.blob());
+      const audio = new Audio(url);
+      current = audio;
+      const cleanup = () => URL.revokeObjectURL(url);
+      audio.onended = cleanup; audio.onerror = cleanup;
+      await audio.play().catch(() => {});
+      return;
     }
-  }
+  } catch { /* fall through to the browser voice for this line only */ }
+
   browserSpeak(profile, text);
 }
 

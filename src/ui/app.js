@@ -347,15 +347,21 @@ function renderTags() {
 }
 
 function renderPhase() {
-  $('turnLabel').textContent = `Turn ${V.turn} — ${V.players[V.activePlayer].name}`;
+  const yours = V.activePlayer === HUMAN;
+  $('turnLabel').textContent = yours ? 'Your turn' : `${V.players[AI].name}'s turn`;
   $('stepLabel').textContent = STEP_LABELS[V.step] || V.step;
+  const info = document.querySelector('.turn-info');
+  if (info) info.classList.toggle('your-turn', yours);
+
   const track = $('phaseTrack');
   track.innerHTML = '';
   const shown = ['untap', 'draw', 'main1', 'declare_attackers', 'declare_blockers', 'combat_damage', 'main2', 'end'];
-  for (const s of shown) {
-    const label = { untap: 'Untap', draw: 'Draw', main1: 'Main 1', declare_attackers: 'Attack', declare_blockers: 'Block', combat_damage: 'Damage', main2: 'Main 2', end: 'End' }[s];
-    track.append(el('span', V.step === s ? 'on' : '', label));
-  }
+  const labels = { untap: 'Untap', draw: 'Draw', main1: 'Main 1', declare_attackers: 'Attack', declare_blockers: 'Block', combat_damage: 'Damage', main2: 'Main 2', end: 'End' };
+  const activeIdx = shown.indexOf(V.step);
+  shown.forEach((s, i) => {
+    const cls = s === V.step ? 'on' : (activeIdx >= 0 && i < activeIdx ? 'done' : '');
+    track.append(el('span', cls, labels[s]));
+  });
 }
 
 function renderBattlefield() {
@@ -596,7 +602,7 @@ function renderPrompt() {
       mulligan: 'considering a mulligan', attackers: 'declaring attackers', blockers: 'declaring blockers',
       priority: 'thinking', choose_targets: 'choosing targets',
     }[aw.type] || 'thinking';
-    return say(promptNode, `Claude is ${what}…`);
+    return say(promptNode, `${opponent.name} is ${what}…`);
   }
 
   if (aw.type === 'mulligan') return renderMulligan(promptNode, actionsNode);
@@ -608,18 +614,24 @@ function renderPrompt() {
     return renderTargeting(promptNode, actionsNode);
   }
 
-  // Ordinary priority.
+  // Ordinary priority. Lead with the phase in plain language so it's always
+  // obvious where you are and what to do.
   const actions = legalActions(G, HUMAN);
   const playable = actions.filter((a) => a.type !== 'pass').length;
+  const phase = STEP_LABELS[V.step] || V.step;
   if (G.stack.length) {
-    say(promptNode, `Something is on the stack. ${playable ? 'Respond with an instant, or let it resolve.' : 'Let it resolve.'}`);
+    say(promptNode, `ON THE STACK — ${playable ? 'respond with an instant, or let it resolve.' : 'let it resolve.'}`);
   } else if (V.activePlayer === HUMAN) {
-    say(promptNode, playable ? 'Your move — click a card to play it.' : 'Nothing to play.');
+    const isMain = V.step === 'main1' || V.step === 'main2';
+    const tip = isMain
+      ? (playable ? 'play a land or cast a spell, then press Next.' : 'nothing to play — press Next.')
+      : (playable ? 'you may act, or press Next.' : 'nothing to do — press Next.');
+    say(promptNode, `YOUR TURN · ${phase} — ${tip}`);
   } else {
-    say(promptNode, playable ? "Claude's turn — you may respond with an instant." : "Claude's turn.");
+    say(promptNode, `${opponent.name.toUpperCase()}'S TURN · ${phase} — ${playable ? 'you may respond with an instant, or pass.' : 'waiting — press Pass.'}`);
   }
 
-  const pass = el('button', 'btn primary', G.stack.length ? 'Let it resolve' : (V.activePlayer === HUMAN ? 'Next step' : 'Pass'));
+  const pass = el('button', 'btn primary', G.stack.length ? 'Let it resolve' : (V.activePlayer === HUMAN ? 'Next ▶' : 'Pass ▶'));
   pass.onclick = () => act({ type: 'pass' });
   actionsNode.append(pass);
 }
