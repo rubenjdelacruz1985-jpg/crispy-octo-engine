@@ -295,6 +295,11 @@ function snapshotFx() {
     life: [V.players[HUMAN].life, V.players[AI].life],
     creatures, present,
     stack: new Set(V.stack.map((s) => s.sid)),
+    stackColor: new Map(V.stack.map((s) => [s.sid, (cardDef(s.defId).colour || 'C')])),
+    attColors: ((V.combat && V.combat.attackers) || []).map((iid) => {
+      const c = findInView(iid);
+      return c ? (cardDef(c).colour || 'C') : 'C';
+    }),
     hand: [V.players[HUMAN].handCount, V.players[AI].handCount],
     attackers: (V.combat && V.combat.attackers) ? V.combat.attackers.length : 0,
   };
@@ -326,8 +331,15 @@ function runFx() {
   for (const pid of [HUMAN, AI]) {
     const delta = cur.life[pid] - prev.life[pid];
     const tag = $(pid === HUMAN ? 'tagYou' : 'tagAi');
-    if (delta < 0) { floatOver(tag, `${delta}`, 'fx-dmg'); sHit = true; }
-    else if (delta > 0) floatOver(tag, `+${delta}`, 'fx-heal');
+    if (delta < 0) {
+      floatOver(tag, `${delta}`, 'fx-dmg');
+      // Elemental burst on the life orb, themed by whatever dealt the damage.
+      let colour = null;
+      for (const sid of prev.stack) if (!cur.stack.has(sid)) { colour = prev.stackColor.get(sid); break; }
+      if (!colour) { const ac = cur.attColors.length ? cur.attColors : prev.attColors; if (ac && ac.length) colour = ac[0]; }
+      lifeBurst(pid, colour || 'R');
+      sHit = true;
+    } else if (delta > 0) floatOver(tag, `+${delta}`, 'fx-heal');
   }
   if (cur.life[HUMAN] < prev.life[HUMAN]) shakeBoard(prev.life[HUMAN] - cur.life[HUMAN]);
 
@@ -375,6 +387,21 @@ function pulseBoard() {
   if (!b) return;
   b.classList.remove('fx-pulse'); void b.offsetWidth; b.classList.add('fx-pulse');
   setTimeout(() => b.classList.remove('fx-pulse'), 460);
+}
+
+// Element theme per mana colour, for the life-hit burst.
+const ELEM = { R: '🔥', U: '💧', B: '💀', G: '🌿', W: '✨', C: '⚡' };
+
+function lifeBurst(pid, colour) {
+  const tag = $(pid === HUMAN ? 'tagYou' : 'tagAi');
+  const orb = tag && tag.querySelector('.life');
+  if (!orb) return;
+  const r = orb.getBoundingClientRect();
+  const b = el('div', `life-burst burst-${colour}`, ELEM[colour] || '⚡');
+  b.style.left = `${r.left + r.width / 2}px`;
+  b.style.top = `${r.top + r.height / 2}px`;
+  document.body.append(b);
+  setTimeout(() => b.remove(), 900);
 }
 
 // Available mana as coloured pips (Arena-style crystals), so you can see what

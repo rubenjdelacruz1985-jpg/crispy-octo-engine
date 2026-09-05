@@ -583,6 +583,29 @@ button { font: inherit; }
 .card-preview .card { transform: scale(1.95); transform-origin: left center; box-shadow: 0 24px 60px #10203a66; }
 .card-preview .card:hover { transform: scale(1.95); }  /* ignore hover transforms on the clone */
 
+/* Elemental burst on the life orb when it takes damage (themed by source colour). */
+.life-burst {
+  position: fixed; transform: translate(-50%, -50%); pointer-events: none; z-index: 60;
+  font-size: 30px; --burst: #ff5a2e; filter: drop-shadow(0 0 7px var(--burst));
+  animation: burstPop .9s ease-out forwards;
+}
+.life-burst::before {
+  content: ''; position: absolute; left: 50%; top: 50%; border-radius: 50%;
+  border: 8px solid var(--burst); transform: translate(-50%, -50%);
+  animation: burstRing .9s ease-out forwards;
+}
+.burst-R { --burst: #ff5a2e; } .burst-U { --burst: #3a9bea; } .burst-B { --burst: #9a5bd0; }
+.burst-G { --burst: #3fbf62; } .burst-W { --burst: #f0d071; } .burst-C { --burst: #57d4d4; }
+@keyframes burstPop {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  25%  { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+  100% { opacity: 0; transform: translate(-50%, -90%) scale(1); }
+}
+@keyframes burstRing {
+  0%   { opacity: .9; width: 14px; height: 14px; border-width: 8px; }
+  100% { opacity: 0; width: 120px; height: 120px; border-width: 1px; }
+}
+
 @media (max-width: 900px) {
   .deck-columns { grid-template-columns: 1fr; }
   :root { --card-w: 96px; --card-h: 134px; --land-w: 70px; --land-h: 98px; --hand-w: 120px; --hand-h: 168px; }
