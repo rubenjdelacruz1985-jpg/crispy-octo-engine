@@ -190,6 +190,17 @@ button { font: inherit; }
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 .player-tag .counts { color: var(--muted); font-size: 12px; display: flex; gap: 10px; }
+.mana-avail { display: inline-flex; gap: 3px; align-items: center; }
+.mana-avail .mpip {
+  width: 11px; height: 11px; border-radius: 50%;
+  box-shadow: inset 0 -1px 2px #00000026, inset 0 1px 1px #ffffff66;
+}
+.mana-avail .mpip.W { background: var(--c-W); }
+.mana-avail .mpip.U { background: var(--c-U); }
+.mana-avail .mpip.B { background: var(--c-B); }
+.mana-avail .mpip.R { background: var(--c-R); }
+.mana-avail .mpip.G { background: var(--c-G); }
+.mana-avail .mpip.C { background: var(--c-C); }
 .player-tag.active .pname { color: var(--accent); }
 .player-tag.active .life { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .player-tag.targetable-player {

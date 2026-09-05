@@ -329,6 +329,27 @@ function pulseBoard() {
   setTimeout(() => b.classList.remove('fx-pulse'), 460);
 }
 
+// Available mana as coloured pips (Arena-style crystals), so you can see what
+// you can afford at a glance. Counts untapped lands + non-summoning-sick mana
+// creatures by the colour they produce.
+function manaEl(pid) {
+  const pool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+  for (const c of V.players[pid].battlefield) {
+    if (c.tapped) continue;
+    const d = cardDef(c);
+    if (!d.produces || !d.produces.length) continue;
+    if (isCreature(c) && c.summoningSick && !has(V, c, 'haste')) continue;
+    for (const col of d.produces) if (pool[col] !== undefined) pool[col]++;
+  }
+  const wrap = el('span', 'mana-avail');
+  let shown = 0;
+  for (const col of ['W', 'U', 'B', 'R', 'G', 'C']) {
+    for (let i = 0; i < pool[col] && shown < 14; i++, shown++) wrap.append(el('span', `mpip ${col}`));
+  }
+  if (shown) wrap.title = `${shown} mana available`;
+  return wrap;
+}
+
 function renderTags() {
   const you = V.players[HUMAN];
   const ai = V.players[AI];
@@ -347,6 +368,7 @@ function renderTags() {
     const life = el('span', `life${p.life <= 5 ? ' low' : ''}${changed ? ' pulse' : ''}${down ? ' down' : ''}`, String(p.life));
     lifePrev[p.id] = p.life;
     node.append(life);
+    node.append(manaEl(p.id));
     const counts = el('span', 'counts');
     counts.append(el('span', null, `${p.handCount} in hand`), el('span', null, `${p.librarySize} in deck`));
     if (p.graveyard.length) counts.append(el('span', null, `${p.graveyard.length} in graveyard`));
