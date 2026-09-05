@@ -8,10 +8,22 @@
 // built-in speech instead.
 
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
 const ROOT = process.cwd();
+
+// Load a .env file if present, so the API key can live in a file you edit once
+// instead of being typed on every launch. (Real env vars still win.)
+try {
+  const text = readFileSync(join(ROOT, '.env'), 'utf8');
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '').trim();
+  }
+} catch { /* no .env — that's fine, voices just fall back to the browser */ }
+
 const PORT = Number(process.env.PORT || 5173);
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
