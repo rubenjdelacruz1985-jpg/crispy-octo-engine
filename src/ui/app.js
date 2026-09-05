@@ -91,7 +91,7 @@ function renderProfilePicker() {
 
 function startGame() {
   settings.autoPass = $('optAutoPass').checked;
-  settings.aiDelay = $('optFastAi').checked ? 160 : 700;
+  settings.aiDelay = $('optFastAi').checked ? 450 : 1100;
   opponent = profileById(picks.profile);
   stopVoice();
   resumeSfx(); // this click is the user gesture that unlocks Web Audio
@@ -137,6 +137,8 @@ function tick() {
       } else {
         action = chooseAction(aiView, AI, actions) || { type: 'pass' };
       }
+      // Grab the card being played BEFORE it leaves the hand, so we can show it.
+      const played = action.iid ? G.players[AI].hand.find((c) => c.iid === action.iid) : null;
       const humanLifeBefore = G.players[HUMAN].life;
       try {
         applyAction(G, AI, action);
@@ -145,6 +147,9 @@ function tick() {
         console.warn('AI action rejected, passing instead:', action, err.message);
         try { applyAction(G, AI, { type: 'pass' }); } catch { /* nothing left to do */ }
       }
+      // Show what the opponent just played, so it's never a mystery.
+      if (played && action.type === 'cast') announcePlay(played, isCreature(played) ? 'plays' : 'casts');
+      else if (played && action.type === 'play_land') announcePlay(played, 'plays');
       // React to what just happened.
       if (G.players[HUMAN].life < humanLifeBefore) maybeQuip('damage');
       else if (action.type === 'cast') maybeQuip('play');
@@ -387,6 +392,21 @@ function pulseBoard() {
   if (!b) return;
   b.classList.remove('fx-pulse'); void b.offsetWidth; b.classList.add('fx-pulse');
   setTimeout(() => b.classList.remove('fx-pulse'), 460);
+}
+
+// Big centered "who played what" so opponent plays are always legible.
+function announcePlay(cardObj, verb) {
+  const box = $('playAnnounce');
+  if (!box || !cardObj) return;
+  box.innerHTML = '';
+  box.append(el('div', 'pa-label', `${opponent.name} ${verb} ${cardDef(cardObj).name}`));
+  const cardNode = renderCard(cardObj, {});
+  cardNode.classList.add('pa-card');
+  box.append(cardNode);
+  box.classList.remove('hidden');
+  box.classList.remove('show'); void box.offsetWidth; box.classList.add('show');
+  clearTimeout(announcePlay._t);
+  announcePlay._t = setTimeout(() => box.classList.add('hidden'), 1700);
 }
 
 // Element theme per mana colour, for the life-hit burst.
