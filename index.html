@@ -68,6 +68,15 @@
 
     <div id="oppSpeech" class="opp-speech hidden" aria-live="polite"></div>
 
+    <svg id="arrowLayer" class="arrow-layer hidden" aria-hidden="true">
+      <defs>
+        <marker id="arrowHead" markerWidth="9" markerHeight="9" refX="5.5" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 Z" fill="#e23b2e" />
+        </marker>
+      </defs>
+      <path id="arrowPath" d="" />
+    </svg>
+
     <main class="board">
       <div class="side opponent">
         <div class="zone-row lands" id="aiLands"></div>

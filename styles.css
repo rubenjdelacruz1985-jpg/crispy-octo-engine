@@ -571,6 +571,13 @@ button { font: inherit; }
   100% { box-shadow: inset 0 1px 0 #ffffff, inset 0 0 60px #10203a0f; }
 }
 
+/* Targeting arrow (Hearthstone/Arena-style) shown while aiming a spell/block. */
+.arrow-layer { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 45; }
+#arrowPath {
+  fill: none; stroke: #e23b2e; stroke-width: 4; stroke-linecap: round;
+  opacity: .92; filter: drop-shadow(0 2px 5px #00000070); marker-end: url(#arrowHead);
+}
+
 @media (max-width: 900px) {
   .deck-columns { grid-template-columns: 1fr; }
   :root { --card-w: 96px; --card-h: 134px; --land-w: 70px; --land-h: 98px; --hand-w: 120px; --hand-h: 168px; }

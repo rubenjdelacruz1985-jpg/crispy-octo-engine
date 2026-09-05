@@ -245,6 +245,32 @@ function render() {
   renderPrompt();
   renderLog();
   runFx();
+  drawArrow();
+}
+
+// -------------------------------------------------------- targeting arrow ----
+let lastMouse = { x: 0, y: 0 };
+
+function arrowSource() {
+  // Where the aiming arrow starts — only while you're choosing a target/block.
+  if (ui.mode === 'targeting') return { x: window.innerWidth / 2, y: window.innerHeight - 96 };
+  if (ui.mode === 'blockers' && ui.pending) {
+    const n = cardNodeFor(ui.pending);
+    if (n) { const r = n.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+  }
+  return null;
+}
+
+function drawArrow() {
+  const svg = $('arrowLayer'); const path = $('arrowPath');
+  if (!svg || !path) return;
+  const from = arrowSource();
+  if (!from) { svg.classList.add('hidden'); return; }
+  const to = lastMouse;
+  const mx = (from.x + to.x) / 2;
+  const my = Math.min(from.y, to.y) - 55;
+  path.setAttribute('d', `M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`);
+  svg.classList.remove('hidden');
 }
 
 // ------------------------------------------------------------- effects ----
@@ -911,6 +937,10 @@ $('concedeBtn').onclick = () => {
   }
   tick();
 };
+document.addEventListener('mousemove', (e) => {
+  lastMouse = { x: e.clientX, y: e.clientY };
+  if (ui.mode === 'targeting' || (ui.mode === 'blockers' && ui.pending)) drawArrow();
+});
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ui.mode === 'targeting' && ui.kind === 'cast') { ui = { mode: 'idle' }; render(); }
   if ((e.key === ' ' || e.key === 'Enter') && G && G.awaiting && G.awaiting.player === HUMAN && G.awaiting.type === 'priority' && ui.mode === 'idle') {
