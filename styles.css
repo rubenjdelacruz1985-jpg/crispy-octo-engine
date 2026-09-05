@@ -578,6 +578,11 @@ button { font: inherit; }
   opacity: .92; filter: drop-shadow(0 2px 5px #00000070); marker-end: url(#arrowHead);
 }
 
+/* Big card preview on hover — so cards are actually readable. */
+.card-preview { position: fixed; left: 22px; top: 50%; transform: translateY(-50%); z-index: 55; pointer-events: none; }
+.card-preview .card { transform: scale(1.95); transform-origin: left center; box-shadow: 0 24px 60px #10203a66; }
+.card-preview .card:hover { transform: scale(1.95); }  /* ignore hover transforms on the clone */
+
 @media (max-width: 900px) {
   .deck-columns { grid-template-columns: 1fr; }
   :root { --card-w: 96px; --card-h: 134px; --land-w: 70px; --land-h: 98px; --hand-w: 120px; --hand-h: 168px; }

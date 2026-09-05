@@ -16,6 +16,7 @@ import { chooseAction } from '../ai/ai.js';
 import { fetchCardImage } from './scryfall.js';
 import { PROFILES, DEFAULT_PROFILE, profileById, quipFor } from './profiles.js';
 import { speak, stopVoice, setMuted, isMuted } from './voice.js';
+import { sfx, resume as resumeSfx, setMuted as setSfxMuted } from './sfx.js';
 
 const HUMAN = 0;
 const AI = 1;
@@ -93,6 +94,7 @@ function startGame() {
   settings.aiDelay = $('optFastAi').checked ? 160 : 700;
   opponent = profileById(picks.profile);
   stopVoice();
+  resumeSfx(); // this click is the user gesture that unlocks Web Audio
   lastQuipAt = 0;
   delete lifePrev[HUMAN]; delete lifePrev[AI];
   G = createGame({
@@ -293,6 +295,8 @@ function snapshotFx() {
     life: [V.players[HUMAN].life, V.players[AI].life],
     creatures, present,
     stack: new Set(V.stack.map((s) => s.sid)),
+    hand: [V.players[HUMAN].handCount, V.players[AI].handCount],
+    attackers: (V.combat && V.combat.attackers) ? V.combat.attackers.length : 0,
   };
 }
 
@@ -302,28 +306,46 @@ function runFx() {
   fxPrev = cur;
   if (!prev) return; // first paint — nothing to animate against
 
+  // Visual + sound flags (fire each sound at most once per render).
+  let sHit = false, sTap = false, sEnter = false, sDeath = false;
+
   for (const [iid, now] of cur.creatures) {
     const node = cardNodeFor(iid);
-    if (!node) continue;
     const before = prev.creatures.get(iid);
-    if (!prev.present.has(iid)) { flashNode(node, 'fx-enter'); continue; }
+    if (!prev.present.has(iid)) { if (node) flashNode(node, 'fx-enter'); sEnter = true; continue; }
     if (before && now.damage > before.damage) {
-      flashNode(node, 'fx-hit');
-      floatOver(node.parentElement, `-${now.damage - before.damage}`, 'fx-dmg');
+      if (node) { flashNode(node, 'fx-hit'); floatOver(node.parentElement, `-${now.damage - before.damage}`, 'fx-dmg'); }
+      sHit = true;
     }
-    if (before && now.tapped && !before.tapped) flashNode(node, 'fx-tap');
+    if (before && now.tapped && !before.tapped) { if (node) flashNode(node, 'fx-tap'); sTap = true; }
   }
+
+  // A creature that was on the battlefield and now isn't → it died / left (graveyard).
+  for (const iid of prev.present) if (!cur.present.has(iid)) { sDeath = true; break; }
 
   for (const pid of [HUMAN, AI]) {
     const delta = cur.life[pid] - prev.life[pid];
     const tag = $(pid === HUMAN ? 'tagYou' : 'tagAi');
-    if (delta < 0) floatOver(tag, `${delta}`, 'fx-dmg');
+    if (delta < 0) { floatOver(tag, `${delta}`, 'fx-dmg'); sHit = true; }
     else if (delta > 0) floatOver(tag, `+${delta}`, 'fx-heal');
   }
   if (cur.life[HUMAN] < prev.life[HUMAN]) shakeBoard(prev.life[HUMAN] - cur.life[HUMAN]);
 
-  // Something left the stack (a spell/ability resolved) → soft board pulse.
-  for (const sid of prev.stack) if (!cur.stack.has(sid)) { pulseBoard(); break; }
+  let sResolve = false;
+  for (const sid of prev.stack) if (!cur.stack.has(sid)) { pulseBoard(); sResolve = true; break; }
+  let sCast = false;
+  for (const sid of cur.stack) if (!prev.stack.has(sid)) { sCast = true; break; }
+  const sDraw = cur.hand[HUMAN] > prev.hand[HUMAN];
+  const sAttack = cur.attackers > prev.attackers;
+
+  // Sounds — the tactile layer.
+  if (sCast) sfx.cast();
+  if (sAttack) sfx.attack();
+  if (sHit) sfx.damage();
+  if (sDeath) sfx.death();
+  if (sTap) sfx.tap();
+  if (sEnter) sfx.play();
+  if (sDraw) sfx.draw();
 }
 
 function flashNode(node, cls) {
@@ -908,6 +930,7 @@ function showGameOver() {
   const reason = last ? humanise(last.text) : '';
   $('overlayText').textContent = `${reason} Turn ${G.turn} — you ${G.players[HUMAN].life} life, ${opponent.name} ${G.players[AI].life}.`;
   $('overlay').classList.remove('hidden');
+  if (won) sfx.win(); else sfx.lose();
   maybeQuip(won ? 'lose' : 'win', { force: true });
 }
 
@@ -923,6 +946,7 @@ $('newDecksBtn').onclick = () => {
 };
 $('muteBtn').onclick = () => {
   setMuted(!isMuted());
+  setSfxMuted(isMuted()); // one button silences voice + sound effects
   $('muteBtn').textContent = isMuted() ? '🔇' : '🔊';
 };
 $('logBtn').onclick = () => { $('logPanel').classList.toggle('hidden'); renderLog(); };
@@ -940,6 +964,31 @@ $('concedeBtn').onclick = () => {
 document.addEventListener('mousemove', (e) => {
   lastMouse = { x: e.clientX, y: e.clientY };
   if (ui.mode === 'targeting' || (ui.mode === 'blockers' && ui.pending)) drawArrow();
+});
+
+// Big readable preview of whatever card you're hovering.
+function showCardPreview(cardEl) {
+  const pv = $('cardPreview');
+  if (!pv || !cardEl) return;
+  const clone = cardEl.cloneNode(true);
+  ['playable', 'selectable', 'chosen', 'targetable', 'fx-enter', 'fx-hit', 'fx-tap'].forEach((c) => clone.classList.remove(c));
+  clone.querySelectorAll('.fx-float').forEach((f) => f.remove());
+  pv.innerHTML = '';
+  pv.append(clone);
+  pv.classList.remove('hidden');
+}
+function hideCardPreview() { const pv = $('cardPreview'); if (pv) pv.classList.add('hidden'); }
+
+document.addEventListener('mouseover', (e) => {
+  const card = e.target.closest && e.target.closest('.card');
+  if (card && !card.classList.contains('cardback') && !card.closest('#cardPreview')) showCardPreview(card);
+});
+document.addEventListener('mouseout', (e) => {
+  const card = e.target.closest && e.target.closest('.card');
+  if (!card || card.closest('#cardPreview')) return;
+  const to = e.relatedTarget;
+  if (to && to.closest && to.closest('.card') === card) return; // still inside the same card
+  hideCardPreview();
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ui.mode === 'targeting' && ui.kind === 'cast') { ui = { mode: 'idle' }; render(); }
