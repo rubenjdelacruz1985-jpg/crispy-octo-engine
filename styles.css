@@ -122,6 +122,13 @@ button { font: inherit; }
 }
 .check { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
 
+.fan-notice {
+  margin: 26px auto 0; max-width: 620px; font-size: 11.5px; line-height: 1.5;
+  color: #ffffff3d; text-align: center;
+}
+.fan-notice a { color: #ffffff55; }
+.fan-notice a:hover { color: var(--muted); }
+
 /* ---------------------------------------------------------- table ---- */
 
 #table { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
@@ -252,6 +259,10 @@ button { font: inherit; }
 
 .card .art { flex: 1 1 auto; position: relative; overflow: hidden; min-height: 34px; }
 .card .art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.card .art img.real-art {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center 22%;
+}
 
 .card .typeline {
   font-size: 8.5px; letter-spacing: .04em; text-transform: uppercase; color: #cfd4e0;

@@ -89,9 +89,19 @@ export function isDead(g, card) {
   return card.damage >= toughness(g, card) && toughness(g, card) > 0;
 }
 
-/** Mana sources a player could still tap this turn. */
+/**
+ * Mana sources a player could still tap this turn.
+ *
+ * Summoning sickness only restricts a creature's own tap abilities (rule
+ * 302.6) — it never applies to lands or artifacts, so a mana rock works the
+ * turn it enters but a freshly cast mana dork creature does not.
+ */
 export function manaSources(g, playerId) {
-  return g.players[playerId].battlefield.filter((c) => c.produces && !c.tapped);
+  return g.players[playerId].battlefield.filter((c) => {
+    if (!c.produces || c.tapped) return false;
+    if (isCreature(c) && c.summoningSick && !has(g, c, 'haste')) return false;
+    return true;
+  });
 }
 
 export function availableMana(g, playerId) {

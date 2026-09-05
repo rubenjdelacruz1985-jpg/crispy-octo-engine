@@ -6,6 +6,8 @@ import { createGame, applyAction, legalActions, findCard, checkStateBasedActions
 import { power, toughness, has, canAttack, blockLegal } from '../src/engine/query.js';
 import { moveCard, makeCard, viewFor } from '../src/engine/state.js';
 import { chooseAction } from '../src/ai/ai.js';
+import { manaSources } from '../src/engine/query.js';
+import { findPayment as findManaPayment } from '../src/engine/mana.js';
 
 function keepBothHands(g) {
   applyAction(g, g.awaiting.player, { type: 'keep', bottom: [] });
@@ -136,4 +138,63 @@ test("AI: never sees the opponent's hand contents when choosing an action", () =
   for (const c of g.players[0].hand) {
     assert.equal(serialized.includes(c.defId), false, `AI's view leaked "${c.defId}" from the human's hand`);
   }
+});
+
+test('real cards: a freshly cast mana dork cannot tap for mana the turn it enters (summoning sickness)', () => {
+  const g = createGame({ seed: 20, startingPlayer: 0 });
+  keepBothHands(g);
+  const elves = moveCard(g, makeCard(g, 'real_llanowar_elves', 0), 0, 'battlefield');
+  assert.equal(elves.summoningSick, true);
+  assert.equal(manaSources(g, 0).includes(elves), false, 'a summoning-sick creature must not count as an available mana source');
+
+  elves.summoningSick = false;
+  assert.equal(manaSources(g, 0).includes(elves), true, 'once it has been around since the turn began, it can tap for mana');
+});
+
+test('real cards: a land can still tap for mana the turn it enters (lands are never summoning sick)', () => {
+  const g = createGame({ seed: 21, startingPlayer: 0 });
+  keepBothHands(g);
+  const forest = moveCard(g, makeCard(g, 'real_forest', 0), 0, 'battlefield');
+  assert.equal(manaSources(g, 0).includes(forest), true);
+});
+
+test('real cards: Counterspell removes both itself and its target from the stack', () => {
+  const g = createGame({ seed: 22, startingPlayer: 0 });
+  keepBothHands(g);
+  const bolt = makeCard(g, 'real_lightning_bolt', 1);
+  moveCard(g, bolt, 1, 'stack');
+  g.stack.push({
+    sid: g.nextSid++, kind: 'spell', defId: 'real_lightning_bolt', card: bolt, sourceIid: bolt.iid,
+    controller: 1, targets: [{ t: 'player', id: 0 }],
+  });
+  const counterCard = makeCard(g, 'real_counterspell', 0);
+  moveCard(g, counterCard, 0, 'stack');
+  g.stack.push({
+    sid: g.nextSid++, kind: 'spell', defId: 'real_counterspell', card: counterCard, sourceIid: counterCard.iid,
+    controller: 0, targets: [{ t: 'spell', sid: g.stack[0].sid }],
+  });
+
+  // Both players have already passed once; this pass is the second, so the
+  // top of the stack (Counterspell) resolves.
+  g.priorityPlayer = 1;
+  g.passCount = 1;
+  g.awaiting = { type: 'priority', player: 1 };
+  applyAction(g, 1, { type: 'pass' });
+
+  assert.equal(g.stack.length, 0, 'Counterspell removes its countered target from the stack too, not just itself');
+  assert.equal(findCard(g, bolt.iid).zone, 'graveyard', "the countered spell's card goes to the graveyard");
+  assert.equal(findCard(g, counterCard.iid).zone, 'graveyard', "Counterspell's own card goes to the graveyard once it resolves");
+  assert.equal(g.players[0].life, 20, 'the countered Lightning Bolt must never have dealt its damage');
+});
+
+test('real cards: Murder destroys any target creature regardless of colour', () => {
+  const g = createGame({ seed: 23, startingPlayer: 0 });
+  keepBothHands(g);
+  const target = moveCard(g, makeCard(g, 'real_serra_angel', 1), 1, 'battlefield');
+  const payment = findManaPayment([
+    moveCard(g, makeCard(g, 'real_swamp', 0), 0, 'battlefield'),
+    moveCard(g, makeCard(g, 'real_swamp', 0), 0, 'battlefield'),
+    moveCard(g, makeCard(g, 'real_swamp', 0), 0, 'battlefield'),
+  ], '1BB');
+  assert.equal(payment.length, 3, 'three swamps should pay Murder\'s 1BB');
 });

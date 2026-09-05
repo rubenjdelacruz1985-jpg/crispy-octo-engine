@@ -1,5 +1,7 @@
 // Starter decks. Forty cards each with seventeen lands — quick games, real curve.
 
+import { REAL_DECKS } from './real-cards.js';
+
 export const DECKS = {
   ember_vanguard: {
     id: 'ember_vanguard',
@@ -71,6 +73,8 @@ export const DECKS = {
     ],
   },
 };
+
+Object.assign(DECKS, REAL_DECKS);
 
 export const DECK_IDS = Object.keys(DECKS);
 

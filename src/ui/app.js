@@ -13,6 +13,7 @@ import { cardDef } from '../engine/registry.js';
 import { power, toughness, has, isCreature, isLand, canAttack, blockLegal } from '../engine/query.js';
 import { costSymbols } from '../engine/mana.js';
 import { chooseAction } from '../ai/ai.js';
+import { fetchCardImage } from './scryfall.js';
 
 const HUMAN = 0;
 const AI = 1;
@@ -340,6 +341,24 @@ function artFor(d) {
     </svg>`;
 }
 
+/**
+ * Swap a real card's placeholder sigil for its actual Scryfall art once (if
+ * ever) it loads. The sigil stays underneath the whole time, so a blocked or
+ * slow fetch — including the total block in this sandbox's own environment —
+ * just leaves the placeholder in place instead of an empty box.
+ */
+function attachRealArt(artNode, d) {
+  fetchCardImage(d.scryfallName).then((images) => {
+    if (!images || !images.normal) return;
+    const img = new Image();
+    img.className = 'real-art';
+    img.alt = d.name;
+    img.onload = () => artNode.prepend(img);
+    img.onerror = () => { /* leave the sigil showing */ };
+    img.src = images.normal;
+  });
+}
+
 function renderCard(c, opts = {}) {
   if (c.hidden) {
     const back = el('div', 'cardback');
@@ -369,6 +388,7 @@ function renderCard(c, opts = {}) {
   const art = el('div', 'art');
   art.innerHTML = artFor(d);
   node.append(art);
+  if (d.real && d.scryfallName) attachRealArt(art, d);
 
   const line = [d.types.join(' '), d.subtypes && d.subtypes.length ? `— ${d.subtypes.join(' ')}` : ''].join(' ').trim();
   node.append(el('div', 'typeline', line));
