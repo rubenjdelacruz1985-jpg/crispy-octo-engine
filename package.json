@@ -1,0 +1,12 @@
+{
+  "name": "spellforge",
+  "version": "0.1.0",
+  "description": "A playable browser trading-card game with a full rules engine (stack, priority, phases, combat) and a hidden-information AI opponent.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "license": "MIT",
+  "private": true
+}
