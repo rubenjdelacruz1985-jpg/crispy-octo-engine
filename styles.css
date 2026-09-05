@@ -24,12 +24,12 @@
   --c-G: #3f9e57;
   --c-C: #8b93a3;
 
-  --card-w: 118px;
-  --card-h: 165px;
-  --land-w: 84px;
-  --land-h: 117px;
-  --hand-w: 152px;
-  --hand-h: 212px;
+  --card-w: 140px;
+  --card-h: 196px;
+  --land-w: 98px;
+  --land-h: 137px;
+  --hand-w: 176px;
+  --hand-h: 246px;
 
   --display: "Space Grotesk", "Inter", system-ui, sans-serif;
   --body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
