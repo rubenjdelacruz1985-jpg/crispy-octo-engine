@@ -20,7 +20,7 @@
 // Scryfall name to fetch art for.
 
 import { register } from './registry.js';
-import { dealDamage, destroy, bounce, draw, counterSpell, pump, resolveTarget } from './effects.js';
+import { dealDamage, destroy, bounce, draw, counterSpell, pump, resolveTarget, loseLife } from './effects.js';
 
 const T = {
   creature: (scope = 'any', label) => ({ kind: 'creature', scope, label: label || 'target creature' }),
@@ -120,6 +120,56 @@ const REAL_CARDS = [
     types: ['Creature'], subtypes: ['Bear'], power: 2, toughness: 2, text: '',
     real: true, scryfallName: 'Grizzly Bears',
   },
+
+  // --- Black-Red aggro additions (early-2000s classics). Each maps to an
+  //     effect the engine already implements, so they play correctly. ---
+  {
+    id: 'real_raging_goblin', name: 'Raging Goblin', cost: 'R', colour: 'R',
+    types: ['Creature'], subtypes: ['Goblin', 'Berserker'], power: 1, toughness: 1,
+    keywords: ['haste'], text: 'Haste',
+    real: true, scryfallName: 'Raging Goblin',
+  },
+  {
+    id: 'real_goblin_piker', name: 'Goblin Piker', cost: '1R', colour: 'R',
+    types: ['Creature'], subtypes: ['Goblin', 'Warrior'], power: 2, toughness: 1, text: '',
+    real: true, scryfallName: 'Goblin Piker',
+  },
+  {
+    id: 'real_hill_giant', name: 'Hill Giant', cost: '3R', colour: 'R',
+    types: ['Creature'], subtypes: ['Giant'], power: 3, toughness: 3, text: '',
+    real: true, scryfallName: 'Hill Giant',
+  },
+  {
+    id: 'real_bog_imp', name: 'Bog Imp', cost: '1B', colour: 'B',
+    types: ['Creature'], subtypes: ['Imp'], power: 1, toughness: 1,
+    keywords: ['flying'], text: 'Flying',
+    real: true, scryfallName: 'Bog Imp',
+  },
+  {
+    id: 'real_feral_shadow', name: 'Feral Shadow', cost: '2B', colour: 'B',
+    types: ['Creature'], subtypes: ['Nightstalker'], power: 2, toughness: 1,
+    keywords: ['flying'], text: 'Flying',
+    real: true, scryfallName: 'Feral Shadow',
+  },
+  {
+    id: 'real_barony_vampire', name: 'Barony Vampire', cost: '2B', colour: 'B',
+    types: ['Creature'], subtypes: ['Vampire'], power: 3, toughness: 2, text: '',
+    real: true, scryfallName: 'Barony Vampire',
+  },
+  {
+    id: 'real_incinerate', name: 'Incinerate', cost: '1R', colour: 'R',
+    types: ['Instant'], subtypes: [], text: 'Incinerate deals 3 damage to any target.',
+    targets: [T.any()], ai: { kind: 'damage', amount: 3 },
+    resolve: (g, ctx) => dealDamage(g, resolveTarget(g, ctx.targets[0]), 3, ctx.source),
+    real: true, scryfallName: 'Incinerate',
+  },
+  {
+    id: 'real_nights_whisper', name: "Night's Whisper", cost: '1B', colour: 'B',
+    types: ['Sorcery'], subtypes: [], text: 'You draw two cards and you lose 2 life.',
+    ai: { kind: 'draw', n: 2 },
+    resolve: (g, ctx) => { draw(g, ctx.controller, 2); loseLife(g, ctx.controller, 2); },
+    real: true, scryfallName: "Night's Whisper",
+  },
 ];
 
 export const REAL_CARDS_ALL = register([...REAL_LANDS, ...REAL_CARDS]);
@@ -145,6 +195,19 @@ export const REAL_DECKS = {
       ['real_forest', 10], ['real_plains', 10],
       ['real_llanowar_elves', 4], ['real_grizzly_bears', 4], ['real_giant_growth', 4],
       ['real_wall_of_swords', 4], ['real_serra_angel', 4],
+    ],
+  },
+  rakdos_aggro_real: {
+    id: 'rakdos_aggro_real',
+    name: 'Black-Red Aggro (real cards)',
+    colours: ['B', 'R'],
+    blurb: 'Real Magic cards: fast goblins and fliers, burn to the face, and removal for the rest. Unofficial fan build.',
+    cards: [
+      ['real_mountain', 9], ['real_swamp', 8],
+      ['real_raging_goblin', 4], ['real_goblin_piker', 3], ['real_bog_imp', 2],
+      ['real_feral_shadow', 3], ['real_barony_vampire', 2], ['real_hill_giant', 1],
+      ['real_lightning_bolt', 2], ['real_shock', 2], ['real_incinerate', 2],
+      ['real_murder', 1], ['real_nights_whisper', 1],
     ],
   },
 };
