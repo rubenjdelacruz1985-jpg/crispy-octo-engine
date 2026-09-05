@@ -223,6 +223,89 @@ function render() {
   renderHand();
   renderPrompt();
   renderLog();
+  runFx();
+}
+
+// ------------------------------------------------------------- effects ----
+// Fire one-shot combat/spell effects by diffing the previous render against the
+// current one, so each animation plays exactly when something actually happens
+// (a creature takes damage, taps, enters; a spell resolves; life changes) —
+// never on an idle re-render.
+let fxPrev = null;
+
+function snapshotFx() {
+  const creatures = new Map();
+  const present = new Set();
+  for (const pid of [HUMAN, AI]) {
+    for (const c of V.players[pid].battlefield) {
+      present.add(c.iid);
+      creatures.set(c.iid, { damage: c.damage || 0, tapped: !!c.tapped });
+    }
+  }
+  return {
+    life: [V.players[HUMAN].life, V.players[AI].life],
+    creatures, present,
+    stack: new Set(V.stack.map((s) => s.sid)),
+  };
+}
+
+function runFx() {
+  const cur = snapshotFx();
+  const prev = fxPrev;
+  fxPrev = cur;
+  if (!prev) return; // first paint — nothing to animate against
+
+  for (const [iid, now] of cur.creatures) {
+    const node = cardNodeFor(iid);
+    if (!node) continue;
+    const before = prev.creatures.get(iid);
+    if (!prev.present.has(iid)) { flashNode(node, 'fx-enter'); continue; }
+    if (before && now.damage > before.damage) {
+      flashNode(node, 'fx-hit');
+      floatOver(node.parentElement, `-${now.damage - before.damage}`, 'fx-dmg');
+    }
+    if (before && now.tapped && !before.tapped) flashNode(node, 'fx-tap');
+  }
+
+  for (const pid of [HUMAN, AI]) {
+    const delta = cur.life[pid] - prev.life[pid];
+    const tag = $(pid === HUMAN ? 'tagYou' : 'tagAi');
+    if (delta < 0) floatOver(tag, `${delta}`, 'fx-dmg');
+    else if (delta > 0) floatOver(tag, `+${delta}`, 'fx-heal');
+  }
+  if (cur.life[HUMAN] < prev.life[HUMAN]) shakeBoard(prev.life[HUMAN] - cur.life[HUMAN]);
+
+  // Something left the stack (a spell/ability resolved) → soft board pulse.
+  for (const sid of prev.stack) if (!cur.stack.has(sid)) { pulseBoard(); break; }
+}
+
+function flashNode(node, cls) {
+  if (!node) return;
+  node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls);
+  setTimeout(() => node.classList && node.classList.remove(cls), 720);
+}
+
+function floatOver(host, text, cls) {
+  if (!host) return;
+  if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+  const f = el('div', `fx-float ${cls}`, text);
+  host.append(f);
+  setTimeout(() => f.remove(), 950);
+}
+
+function shakeBoard(amount) {
+  const b = document.querySelector('.board');
+  if (!b) return;
+  const cls = amount >= 4 ? 'fx-shake-big' : 'fx-shake';
+  b.classList.remove('fx-shake', 'fx-shake-big'); void b.offsetWidth; b.classList.add(cls);
+  setTimeout(() => b.classList.remove(cls), 520);
+}
+
+function pulseBoard() {
+  const b = document.querySelector('.board');
+  if (!b) return;
+  b.classList.remove('fx-pulse'); void b.offsetWidth; b.classList.add('fx-pulse');
+  setTimeout(() => b.classList.remove('fx-pulse'), 460);
 }
 
 function renderTags() {

@@ -513,6 +513,51 @@ button { font: inherit; }
   100% { transform: scale(1); box-shadow: var(--shadow-1); }
 }
 
+/* ---------------------------------------------------- combat / spell fx ---- */
+/* One-shot, fired from runFx(). Animate shadow/filter (never transform) on
+   cards so the slot's centering/rotation transform is left intact. */
+.card.fx-enter { animation: fxEnter .7s ease-out; }
+@keyframes fxEnter {
+  0%   { box-shadow: 0 0 0 0 #35d17f00, var(--shadow-card); }
+  35%  { box-shadow: 0 0 0 6px #35d17f88, 0 10px 24px #10203a33; }
+  100% { box-shadow: 0 0 0 0 #35d17f00, var(--shadow-card); }
+}
+.card.fx-hit { animation: fxHit .5s ease-out; }
+@keyframes fxHit {
+  0%, 100% { filter: none; }
+  25%      { filter: brightness(1.5) saturate(1.35) drop-shadow(0 0 9px #e23b2e); }
+}
+.card.fx-tap { animation: fxTap .42s ease-out; }
+@keyframes fxTap { 0% { filter: brightness(1.35); } 100% { filter: none; } }
+
+/* Floating damage / life numbers over a card slot or a player tag. */
+.fx-float {
+  position: absolute; left: 50%; top: 24%; transform: translateX(-50%);
+  font-weight: 800; font-size: 22px; pointer-events: none; z-index: 40;
+  text-shadow: 0 2px 5px #000a, 0 0 3px #000; animation: fxFloat .95s ease-out forwards;
+}
+.fx-float.fx-dmg { color: #ff5a45; }
+.fx-float.fx-heal { color: #2fd07f; }
+@keyframes fxFloat {
+  0%   { opacity: 0; transform: translate(-50%, 8px) scale(.7); }
+  20%  { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -38px) scale(1); }
+}
+
+/* Screen shake on damage taken; a stronger jolt for big hits. */
+.board.fx-shake { animation: fxShake .34s ease-in-out; }
+.board.fx-shake-big { animation: fxShakeBig .5s ease-in-out; }
+@keyframes fxShake { 0%,100% { transform: translate(0,0); } 25% { transform: translate(-4px,2px); } 50% { transform: translate(4px,-2px); } 75% { transform: translate(-3px,1px); } }
+@keyframes fxShakeBig { 0%,100% { transform: translate(0,0); } 15% { transform: translate(-7px,3px); } 35% { transform: translate(7px,-3px); } 55% { transform: translate(-6px,2px); } 78% { transform: translate(5px,-2px); } }
+
+/* Soft board pulse when a spell/ability resolves off the stack. */
+.board.fx-pulse { animation: fxPulse .45s ease-out; }
+@keyframes fxPulse {
+  0%   { box-shadow: inset 0 1px 0 #ffffff, inset 0 0 60px #10203a0f; }
+  40%  { box-shadow: inset 0 1px 0 #ffffff, inset 0 0 90px #e2bd7333; }
+  100% { box-shadow: inset 0 1px 0 #ffffff, inset 0 0 60px #10203a0f; }
+}
+
 @media (max-width: 900px) {
   .deck-columns { grid-template-columns: 1fr; }
   :root { --card-w: 96px; --card-h: 134px; --land-w: 70px; --land-h: 98px; --hand-w: 120px; --hand-h: 168px; }
