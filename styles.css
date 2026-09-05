@@ -314,6 +314,18 @@ button { font: inherit; }
   object-fit: cover; object-position: center 18%;
 }
 
+/* Real cards: show the WHOLE Scryfall card (its frame, art, text and P/T are
+   baked into the image). The card slot matches MTG's aspect ratio, so the image
+   fills it edge-to-edge with the full card. Hide our reconstructed frame; keep
+   the live gameplay overlays (attacking/blocking badges, damage, pump changes). */
+.card.full-art .top,
+.card.full-art .typeline,
+.card.full-art .rules { display: none; }
+.card.full-art .art { position: absolute; inset: 0; background: transparent; }
+.card.full-art img.real-art { object-fit: cover; object-position: center; }
+.card.full-art .pt { display: none; }                                  /* already on the card image */
+.card.full-art .pt.buffed, .card.full-art .pt.hurt { display: block; } /* show only when pumped/damaged */
+
 .card .typeline {
   font-size: 8.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2);
   padding: 3px 7px; background: var(--bg-3); border-top: 1px solid var(--line);

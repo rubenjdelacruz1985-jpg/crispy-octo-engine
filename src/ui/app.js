@@ -353,7 +353,13 @@ function attachRealArt(artNode, d) {
     const img = new Image();
     img.className = 'real-art';
     img.alt = d.name;
-    img.onload = () => artNode.prepend(img);
+    img.onload = () => {
+      artNode.prepend(img);
+      // Show the FULL real card (art + name + text + P/T are baked into the
+      // image) rather than a cropped window. CSS hides the reconstructed frame.
+      const card = artNode.closest('.card');
+      if (card) card.classList.add('full-art');
+    };
     img.onerror = () => { /* leave the sigil showing */ };
     img.src = images.normal;
   });
