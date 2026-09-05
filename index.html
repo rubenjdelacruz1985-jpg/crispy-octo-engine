@@ -16,7 +16,12 @@
     <div class="setup-inner">
       <h1 class="logo">Spellforge</h1>
       <p class="tagline">A trading card game with a full rules engine — stack, priority, phases, combat.<br />
-        Pick a deck. Claude picks one too, and plays without ever seeing your hand.</p>
+        Pick your opponent and a deck. They play without ever seeing your hand.</p>
+
+      <div class="opponent-pick">
+        <h2>Opponent</h2>
+        <div id="profilePicker" class="profile-row"></div>
+      </div>
 
       <div class="deck-columns">
         <div>
@@ -24,7 +29,7 @@
           <div class="deck-list" id="deckListYou"></div>
         </div>
         <div>
-          <h2>Claude's deck</h2>
+          <h2 id="aiDeckHeading">Opponent's deck</h2>
           <div class="deck-list" id="deckListAi"></div>
         </div>
       </div>
@@ -55,10 +60,13 @@
         <span id="stepLabel">Main phase</span>
       </div>
       <div class="topbar-right">
+        <button class="btn ghost" id="muteBtn" title="Mute opponent voice" aria-label="Mute opponent voice">🔊</button>
         <button class="btn ghost" id="logBtn">Log</button>
         <button class="btn ghost" id="concedeBtn">Concede</button>
       </div>
     </header>
+
+    <div id="oppSpeech" class="opp-speech hidden" aria-live="polite"></div>
 
     <main class="board">
       <div class="side opponent">

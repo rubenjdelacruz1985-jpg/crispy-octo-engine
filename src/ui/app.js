@@ -14,6 +14,8 @@ import { power, toughness, has, isCreature, isLand, canAttack, blockLegal } from
 import { costSymbols } from '../engine/mana.js';
 import { chooseAction } from '../ai/ai.js';
 import { fetchCardImage } from './scryfall.js';
+import { PROFILES, DEFAULT_PROFILE, profileById, quipFor } from './profiles.js';
+import { speak, stopVoice, setMuted, isMuted } from './voice.js';
 
 const HUMAN = 0;
 const AI = 1;
@@ -22,7 +24,10 @@ let G = null;                 // authoritative game state
 let V = null;                 // the human's view of it
 let ui = { mode: 'idle' };
 let settings = { autoPass: true, aiDelay: 700 };
-let picks = { you: 'ember_vanguard', ai: 'tidefall_requiem' };
+let picks = { you: 'ember_vanguard', ai: 'tidefall_requiem', profile: DEFAULT_PROFILE.id };
+let opponent = DEFAULT_PROFILE;   // the selected AI persona
+let lastQuipAt = 0;               // throttle trash-talk
+const lifePrev = {};              // last-seen life per player, for change pulses
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -35,6 +40,9 @@ const el = (tag, cls, text) => {
 // ------------------------------------------------------------- setup ----
 
 function renderSetup() {
+  renderProfilePicker();
+  const heading = $('aiDeckHeading');
+  if (heading) heading.textContent = `${profileById(picks.profile).name}'s deck`;
   for (const [listId, key] of [['deckListYou', 'you'], ['deckListAi', 'ai']]) {
     const wrap = $(listId);
     wrap.innerHTML = '';
@@ -63,20 +71,44 @@ function pipRow(colours) {
   return row;
 }
 
+function renderProfilePicker() {
+  const wrap = $('profilePicker');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (const p of PROFILES) {
+    const b = el('button', `profile-card${picks.profile === p.id ? ' selected' : ''}`);
+    b.append(el('span', 'pavatar', p.avatar));
+    const meta = el('span', 'pmeta');
+    const nameRow = el('span', 'pname-row');
+    nameRow.append(el('span', 'pname', p.name), el('span', `ptier tier-${p.tier.toLowerCase()}`, p.tier));
+    meta.append(nameRow, el('span', 'pblurb', p.blurb));
+    b.append(meta);
+    b.onclick = () => { picks.profile = p.id; renderSetup(); };
+    wrap.append(b);
+  }
+}
+
 function startGame() {
   settings.autoPass = $('optAutoPass').checked;
   settings.aiDelay = $('optFastAi').checked ? 160 : 700;
+  opponent = profileById(picks.profile);
+  stopVoice();
+  lastQuipAt = 0;
+  delete lifePrev[HUMAN]; delete lifePrev[AI];
   G = createGame({
     deck0: picks.you,
     deck1: picks.ai,
-    names: ['You', 'Claude'],
+    names: ['You', opponent.name],
     aiPlayers: [AI],
   });
   ui = { mode: 'idle' };
   $('setup').classList.add('hidden');
   $('table').classList.remove('hidden');
   $('overlay').classList.add('hidden');
+  $('oppSpeech').classList.add('hidden');
   tick();
+  // A greeting once the table is up (slight delay so it lands after the deal).
+  setTimeout(() => maybeQuip('greet', { force: true }), 650);
 }
 
 // --------------------------------------------------------- game loop ----
@@ -94,7 +126,16 @@ function tick() {
       if (!G || G.winner !== null || !G.awaiting || G.awaiting.player !== AI) return;
       const aiView = viewFor(G, AI);
       const actions = legalActions(G, AI);
-      const action = chooseAction(aiView, AI, actions) || { type: 'pass' };
+      // Skill knob: a weaker persona sometimes just passes its priority (misses a
+      // play) instead of taking the engine's best line. Only at priority, where
+      // passing is always legal — never corrupts attackers/blockers/targets.
+      let action;
+      if (G.awaiting.type === 'priority' && Math.random() < (opponent.mistakeRate || 0)) {
+        action = { type: 'pass' };
+      } else {
+        action = chooseAction(aiView, AI, actions) || { type: 'pass' };
+      }
+      const humanLifeBefore = G.players[HUMAN].life;
       try {
         applyAction(G, AI, action);
       } catch (err) {
@@ -102,6 +143,10 @@ function tick() {
         console.warn('AI action rejected, passing instead:', action, err.message);
         try { applyAction(G, AI, { type: 'pass' }); } catch { /* nothing left to do */ }
       }
+      // React to what just happened.
+      if (G.players[HUMAN].life < humanLifeBefore) maybeQuip('damage');
+      else if (action.type === 'cast') maybeQuip('play');
+      else if (action.type === 'declare_attackers' && action.attackers && action.attackers.length) maybeQuip('attack');
       tick();
     }, settings.aiDelay);
     return;
@@ -139,6 +184,35 @@ function toast(message) {
   setTimeout(() => t.remove(), 2700);
 }
 
+// ------------------------------------------------------- opponent voice ----
+
+/** Show the opponent's speech bubble and speak the line. */
+function saySpeech(text) {
+  if (!text) return;
+  const node = $('oppSpeech');
+  if (!node) return;
+  node.innerHTML = '';
+  node.append(el('span', 'ob-avatar', opponent.avatar), el('span', 'ob-text', text));
+  node.classList.remove('hidden');
+  node.classList.remove('show');
+  void node.offsetWidth;     // restart the entrance animation
+  node.classList.add('show');
+  clearTimeout(saySpeech._timer);
+  saySpeech._timer = setTimeout(() => node.classList.add('hidden'), 4200);
+  speak(opponent, text);
+}
+
+/** Fire a trash-talk line for an event, throttled so it isn't spammy. */
+function maybeQuip(event, { force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - lastQuipAt < 3200) return;
+  if (event === 'play' && !force && Math.random() > 0.5) return; // not every play
+  const line = quipFor(opponent, event);
+  if (!line) return;
+  lastQuipAt = now;
+  saySpeech(line);
+}
+
 // ------------------------------------------------------------ render ----
 
 function render() {
@@ -155,14 +229,19 @@ function renderTags() {
   const you = V.players[HUMAN];
   const ai = V.players[AI];
 
-  const tag = (p, node, showHand) => {
+  const tag = (p, node, showHand, avatar) => {
     node.innerHTML = '';
     node.style.cssText = '';
     node.onclick = null;
     node.className = `player-tag${V.activePlayer === p.id ? ' active' : ''}`;
     node.classList.remove('targetable-player');
+    if (avatar) node.append(el('span', 'tag-avatar', avatar));
     node.append(el('span', 'pname', p.name));
-    const life = el('span', `life${p.life <= 5 ? ' low' : ''}`, String(p.life));
+    // Pulse the orb when life changes (fresh element => animation plays once).
+    const changed = lifePrev[p.id] !== undefined && lifePrev[p.id] !== p.life;
+    const down = changed && p.life < lifePrev[p.id];
+    const life = el('span', `life${p.life <= 5 ? ' low' : ''}${changed ? ' pulse' : ''}${down ? ' down' : ''}`, String(p.life));
+    lifePrev[p.id] = p.life;
     node.append(life);
     const counts = el('span', 'counts');
     counts.append(el('span', null, `${p.handCount} in hand`), el('span', null, `${p.librarySize} in deck`));
@@ -180,7 +259,7 @@ function renderTags() {
     }
   };
 
-  tag(ai, $('tagAi'), true);
+  tag(ai, $('tagAi'), true, opponent.avatar);
   tag(you, $('tagYou'), false);
 }
 
@@ -660,11 +739,12 @@ function renderBlockPrompt(promptNode, actionsNode) {
 
 function showGameOver() {
   const won = G.winner === HUMAN;
-  $('overlayTitle').textContent = won ? 'You win' : 'Claude wins';
+  $('overlayTitle').textContent = won ? 'You win' : `${opponent.name} wins`;
   const last = G.log.slice().reverse().find((l) => /loses|concedes/.test(l.text));
   const reason = last ? humanise(last.text) : '';
-  $('overlayText').textContent = `${reason} Turn ${G.turn} — you ${G.players[HUMAN].life} life, Claude ${G.players[AI].life}.`;
+  $('overlayText').textContent = `${reason} Turn ${G.turn} — you ${G.players[HUMAN].life} life, ${opponent.name} ${G.players[AI].life}.`;
   $('overlay').classList.remove('hidden');
+  maybeQuip(won ? 'lose' : 'win', { force: true });
 }
 
 // ------------------------------------------------------------- wiring ----
@@ -672,9 +752,14 @@ function showGameOver() {
 $('startBtn').onclick = startGame;
 $('rematchBtn').onclick = startGame;
 $('newDecksBtn').onclick = () => {
+  stopVoice();
   $('overlay').classList.add('hidden');
   $('table').classList.add('hidden');
   $('setup').classList.remove('hidden');
+};
+$('muteBtn').onclick = () => {
+  setMuted(!isMuted());
+  $('muteBtn').textContent = isMuted() ? '🔇' : '🔊';
 };
 $('logBtn').onclick = () => { $('logPanel').classList.toggle('hidden'); renderLog(); };
 $('logClose').onclick = () => $('logPanel').classList.add('hidden');
