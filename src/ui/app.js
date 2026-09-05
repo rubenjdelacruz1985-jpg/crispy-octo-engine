@@ -152,6 +152,27 @@ function tick() {
     return;
   }
 
+  // Arena-style: don't stop the player at combat steps where there's nothing
+  // to do (no creature can attack / nothing can block) — just skip them.
+  if (settings.autoPass && ui.mode === 'idle') {
+    if (aw.type === 'attackers' && !G.players[HUMAN].battlefield.some((c) => isCreature(c) && canAttack(G, c))) {
+      return void setTimeout(() => {
+        const now = G.awaiting;
+        if (!now || now.player !== HUMAN || now.type !== 'attackers') return;
+        try { applyAction(G, HUMAN, { type: 'declare_attackers', attackers: [] }); } catch { return; }
+        tick();
+      }, 140);
+    }
+    if (aw.type === 'blockers' && !G.players[HUMAN].battlefield.some((c) => isCreature(c) && !c.tapped)) {
+      return void setTimeout(() => {
+        const now = G.awaiting;
+        if (!now || now.player !== HUMAN || now.type !== 'blockers') return;
+        try { applyAction(G, HUMAN, { type: 'declare_blockers', blocks: {} }); } catch { return; }
+        tick();
+      }, 140);
+    }
+  }
+
   // Human's decision. Skip the ones with nothing in them.
   if (settings.autoPass && aw.type === 'priority' && ui.mode === 'idle') {
     const actions = legalActions(G, HUMAN);
@@ -870,7 +891,7 @@ $('concedeBtn').onclick = () => {
 };
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ui.mode === 'targeting' && ui.kind === 'cast') { ui = { mode: 'idle' }; render(); }
-  if (e.key === ' ' && G && G.awaiting && G.awaiting.player === HUMAN && G.awaiting.type === 'priority' && ui.mode === 'idle') {
+  if ((e.key === ' ' || e.key === 'Enter') && G && G.awaiting && G.awaiting.player === HUMAN && G.awaiting.type === 'priority' && ui.mode === 'idle') {
     e.preventDefault();
     act({ type: 'pass' });
   }
